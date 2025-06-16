@@ -6,6 +6,7 @@
     <title>Vinyl Scrobbler for Last.fm</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -65,9 +66,23 @@
                 </div>
             </section>
 
-            <!-- Section 2: Album Database -->
+            <!-- Section 1.B: Discogs API Settings -->
+            <section id="discogs-api-section" class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">1.B Discogs API Settings</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="discogsToken" class="block text-sm font-medium text-gray-300">Discogs Personal Access Token</label>
+                        <input type="password" id="discogsToken" placeholder="Enter your Discogs token" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-green-500 focus:border-green-500">
+                        <p class="mt-1 text-xs text-gray-400">Needed for fetching album details from barcodes. You can generate one from your Discogs developer settings.</p>
+                    </div>
+                    <button id="saveDiscogsTokenBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">Save Discogs Token</button>
+                    <div id="discogsTokenStatus" class="text-sm mt-2 text-gray-400">Status: Not configured</div>
+                </div>
+            </section>
+
+            <!-- Section 3: Album Database -->
             <section class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">2. Album Collection</h2>
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">3. Album Collection</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
                         <label for="rfidTag" class="block text-sm font-medium text-gray-300">RFID Tag ID</label>
@@ -83,7 +98,13 @@
                     </div>
                 </div>
                 <button id="addAlbumBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">Add Album to Collection</button>
+                <button id="scanBarcodeBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 ml-2">Scan Barcode</button>
                 
+                <div id="barcode-scanner-container" style="display: none;" class="my-4 p-4 border border-gray-700 rounded-lg">
+                    <div id="qr-reader" style="width: 100%;"></div>
+                    <button id="closeScannerBtn" class="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Close Scanner</button>
+                </div>
+
                 <div class="mt-6">
                     <h3 class="text-lg font-semibold mb-2 text-gray-200">Your Albums</h3>
                     <div id="albumList" class="max-h-64 overflow-y-auto space-y-2 pr-2">
@@ -92,9 +113,9 @@
                 </div>
             </section>
 
-            <!-- Section 3: Scrobble Log -->
+            <!-- Section 4: Scrobble Log -->
             <section class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">3. Scrobble Log</h2>
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">4. Scrobble Log</h2>
                  <div id="scrobbleLog" class="max-h-64 overflow-y-auto space-y-3 pr-2">
                     <p class="text-gray-500">Waiting for scans...</p>
                  </div>
@@ -116,8 +137,10 @@
         // --- App State ---
         let db, auth, userId, lastFmSessionKey, appId;
         let lastFmCreds = {};
+        let discogsUserToken = ''; // Added for Discogs token
         const API_URL = 'https://ws.audioscrobbler.com/2.0/';
         let firebaseAppInstance; 
+        let html5QrCodeScanner;
 
         // --- UI Elements ---
         const ui = {
@@ -141,6 +164,13 @@
             albumList: document.getElementById('albumList'),
             scrobbleLog: document.getElementById('scrobbleLog'),
             userIdDisplay: document.getElementById('userId'),
+            scanBarcodeBtn: document.getElementById('scanBarcodeBtn'),
+            barcodeScannerContainer: document.getElementById('barcode-scanner-container'),
+            closeScannerBtn: document.getElementById('closeScannerBtn'),
+            // Discogs UI Elements
+            discogsToken: document.getElementById('discogsToken'),
+            saveDiscogsTokenBtn: document.getElementById('saveDiscogsTokenBtn'),
+            discogsTokenStatus: document.getElementById('discogsTokenStatus'),
         };
 
         // --- Last.fm API Helper ---
@@ -216,7 +246,7 @@
             }
         }
 
-        async function saveSettings() {
+        async function saveSettings() { // This is for Last.fm settings
             ui.saveLoader.classList.remove('hidden');
             ui.saveBtnText.innerText = 'Saving...';
             ui.saveApiSettings.disabled = true;
@@ -258,6 +288,40 @@
                 lastFmSessionKey = sessionSnap.data().sessionKey;
                 ui.authStatus.textContent = `Status: Authenticated as ${sessionSnap.data().name}`;
                 ui.authStatus.classList.replace('text-gray-400', 'text-green-400');
+            }
+
+            // Load Discogs Token
+            const discogsDocRef = doc(db, `artifacts/${appId}/users/${userId}/config/discogs`);
+            const discogsDocSnap = await getDoc(discogsDocRef);
+            if (discogsDocSnap.exists() && discogsDocSnap.data().token) {
+                discogsUserToken = discogsDocSnap.data().token;
+                ui.discogsToken.value = discogsUserToken;
+                ui.discogsTokenStatus.textContent = 'Status: Token loaded from Firestore.';
+                ui.discogsTokenStatus.classList.replace('text-gray-400', 'text-green-400');
+            } else {
+                ui.discogsTokenStatus.textContent = 'Status: Token not configured.';
+                ui.discogsTokenStatus.classList.replace('text-green-400', 'text-gray-400');
+            }
+        }
+
+        async function saveDiscogsToken() {
+            const token = ui.discogsToken.value.trim();
+            if (!token) {
+                ui.discogsTokenStatus.textContent = 'Error: Token cannot be empty.';
+                ui.discogsTokenStatus.classList.replace('text-green-400', 'text-red-400');
+                return;
+            }
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/config/discogs`);
+                await setDoc(docRef, { token: token });
+                discogsUserToken = token; // Update global variable
+                ui.discogsTokenStatus.textContent = 'Status: Token saved successfully.';
+                ui.discogsTokenStatus.classList.replace('text-gray-400', 'text-green-400');
+                ui.discogsTokenStatus.classList.remove('text-red-400');
+            } catch (error) {
+                console.error("Error saving Discogs token: ", error);
+                ui.discogsTokenStatus.textContent = 'Error: Failed to save token. Check console.';
+                ui.discogsTokenStatus.classList.replace('text-green-400', 'text-red-400');
             }
         }
         
@@ -412,6 +476,109 @@
                  logToScrobbler(`RFID tag ${rfid} is not in your collection. Please add it.`, 'error');
              }
         }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Code matched = ${decodedText}`, decodedResult);
+            // Message updated slightly for clarity on next step
+            logToScrobbler(`Barcode scanned: ${decodedText}. Looking up on Discogs...`, "info");
+
+            fetchAlbumDetailsFromDiscogs(decodedText);
+
+            ui.barcodeScannerContainer.style.display = 'none';
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.clear().catch(error => {
+                    console.error("Failed to clear html5QrCodeScanner.", error);
+                });
+            }
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, usually better to ignore and keep scanning.
+            // console.warn(`Code scan error = ${error}`);
+        }
+
+        // Actual function to populate form fields
+        function populateAlbumFields(artist, album) {
+            ui.artistName.value = artist;
+            ui.albumName.value = album;
+            logToScrobbler(`Album details populated: ${artist} - ${album}`, "success");
+            console.log("Populated form fields: Artist -", artist, "Album -", album);
+        }
+
+        async function fetchAlbumDetailsFromDiscogs(barcode) {
+            ui.addAlbumBtn.disabled = true;
+            ui.scanBarcodeBtn.disabled = true;
+            logToScrobbler(`Fetching details from Discogs for barcode: ${barcode}...`, "info");
+
+            const discogsSearchUrl = `https://api.discogs.com/database/search?type=release&barcode=${barcode}`;
+            const headers = {
+                'User-Agent': `VinylScrobbler/1.0 (${userId || 'anonymousUser'})`,
+            };
+            if (discogsUserToken) {
+                headers['Authorization'] = `Discogs token=${discogsUserToken}`;
+            }
+
+            try {
+                const response = await fetch(discogsSearchUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    logToScrobbler(`Error fetching from Discogs: ${response.status} ${response.statusText}`, "error");
+                    console.error("Discogs API Error:", response.status, response.statusText);
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    const firstResult = data.results[0];
+                    console.log("Discogs Result:", firstResult);
+
+                    let artist = "";
+                    let album = "";
+
+                    if (firstResult.title) {
+                        const parts = firstResult.title.split(' - ');
+                        if (parts.length >= 2) {
+                            artist = parts.shift().trim();
+                            album = parts.join(' - ').trim();
+                        } else {
+                            album = firstResult.title.trim();
+                            if (firstResult.artist) {
+                                artist = firstResult.artist;
+                            } else if (firstResult.artists && firstResult.artists.length > 0) {
+                                artist = firstResult.artists.map(a => a.name).join(', ');
+                            } else if (firstResult.basic_information && firstResult.basic_information.artists && firstResult.basic_information.artists.length > 0) {
+                               artist = firstResult.basic_information.artists.map(a => a.name).join(', ');
+                            }
+                        }
+                    }
+
+                    if (artist && album) {
+                        // logToScrobbler(`Found on Discogs: ${artist} - ${album}`, "success"); // Replaced by populateAlbumFields log
+                        populateAlbumFields(artist, album);
+                    } else if (album) {
+                         logToScrobbler(`Found on Discogs (album only): ${album}. Artist unclear. Enter artist manually.`, "info");
+                         populateAlbumFields("Unknown Artist", album);
+                    } else {
+                        logToScrobbler(`Could not extract details for barcode ${barcode} from Discogs response. Please check console and enter manually.`, "warn");
+                        console.warn("Discogs result format not as expected:", firstResult);
+                    }
+
+                } else {
+                    logToScrobbler(`Barcode ${barcode} not found on Discogs. Please enter details manually.`, "warn");
+                }
+
+            } catch (error) {
+                logToScrobbler(`Error during Discogs lookup for ${barcode}: ${error.message}. Please try again or enter manually.`, "error");
+                console.error("Error in fetchAlbumDetailsFromDiscogs:", error);
+            } finally {
+                ui.addAlbumBtn.disabled = false;
+                ui.scanBarcodeBtn.disabled = false;
+            }
+        }
         
         // --- Core Application Runner ---
         async function runApp(firebaseConfig) {
@@ -501,6 +668,43 @@
             ui.saveApiSettings.addEventListener('click', saveSettings);
             ui.addAlbumBtn.addEventListener('click', addAlbum);
             ui.authButton.addEventListener('click', handleAuth);
+            ui.saveDiscogsTokenBtn.addEventListener('click', saveDiscogsToken); // Added event listener
+
+            ui.scanBarcodeBtn.addEventListener('click', () => {
+                logToScrobbler("Starting barcode scanner...", "info");
+                ui.barcodeScannerContainer.style.display = 'block';
+
+                if (!html5QrCodeScanner && window.Html5QrcodeScanner) {
+                    html5QrCodeScanner = new Html5QrcodeScanner(
+                        "qr-reader",
+                        { fps: 10, qrbox: {width: 250, height: 250}, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
+                        /* verbose= */ false);
+                }
+
+                if (html5QrCodeScanner && html5QrCodeScanner.getState() !== Html5QrcodeScannerState.SCANNING) {
+                    try {
+                        html5QrCodeScanner.render(onScanSuccess, onScanFailure);
+                    } catch (error) {
+                        console.error("Error rendering Html5QrcodeScanner: ", error);
+                        logToScrobbler(`Error starting scanner: ${error.message}. Ensure camera permissions.`, "error");
+                        ui.barcodeScannerContainer.style.display = 'none';
+                    }
+                } else if (!html5QrCodeScanner) {
+                    console.error("Html5QrcodeScanner not initialized. Make sure the library is loaded.");
+                    logToScrobbler("Error: Barcode scanner library not loaded.", "error");
+                    ui.barcodeScannerContainer.style.display = 'none';
+                }
+            });
+
+            ui.closeScannerBtn.addEventListener('click', () => {
+                ui.barcodeScannerContainer.style.display = 'none';
+                if (html5QrCodeScanner) {
+                    html5QrCodeScanner.clear().catch(error => {
+                        console.error("Failed to clear html5QrCodeScanner.", error);
+                        logToScrobbler("Error closing scanner: " + error.message, "error");
+                    });
+                }
+            });
         });
 
     </script>

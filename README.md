@@ -1,8 +1,17 @@
 Vinyl Scrobbler Project README
 
-This project allows you to scan an RFID tag on a vinyl record sleeve and have the entire album scrobbled to your Last.fm account.
+This project allows you to scan an RFID tag on a vinyl record sleeve and have the entire album scrobbled to your Last.fm account. It also supports scanning album barcodes to automatically fetch artist and album details using the Discogs API.
 
 It consists of two main parts: a web application for configuration and logging, and a Python script that reads the RFID tags.
+
+## Features
+
+*   **RFID-Based Scrobbling:** Scan an RFID tag on your record sleeve to trigger scrobbling.
+*   **Barcode Scanning:** Scan an album's barcode to automatically look up and populate Artist and Album Name fields using the Discogs API.
+*   **Real-time Updates:** Uses Firebase Firestore for real-time communication between the RFID reader and the web app, and for live logging.
+*   **Last.fm Integration:** Securely connects to your Last.fm account to scrobble played tracks.
+*   **Album Mapping:** Manually map RFID tags to specific albums if needed.
+*   **Web-Based Interface:** All configuration, mapping, and logging are handled through an easy-to-use web interface.
 
 Part 1: The Web Application
 The web app is a single HTML file that you can host on a service like GitHub Pages or Netlify. It is used to:
@@ -13,9 +22,19 @@ Enter your Last.fm API Key, Secret, and Username.
 
 Authorize the app with your Last.fm account.
 
-Map your RFID tag IDs to specific albums (Artist and Album Title).
+Optionally, enter a Discogs Personal Access Token for improved barcode lookup.
+
+Map your RFID tag IDs to specific albums (Artist and Album Title), or use barcode scanning to populate these fields.
 
 View a real-time log of scans and scrobbles.
+
+**Using Barcode Scanning:**
+1.  Navigate to the "3. Album Collection" section in the web app.
+2.  Click the "Scan Barcode" button.
+3.  If prompted by your browser, grant camera access.
+4.  Position your album sleeve's barcode in front of the camera, within the designated scanning area.
+5.  Once the barcode is successfully scanned, the app will attempt to fetch album details from Discogs.
+6.  If found, the "Artist Name" and "Album Name" fields will be automatically populated. You can then add an RFID tag ID and save this mapping.
 
 Setup for the Web App:
 
@@ -32,6 +51,16 @@ Create a Last.fm API account to get an API Key and Secret.
 Enter your Last.fm credentials into the web app and save.
 
 Click "Authenticate with Last.fm" and authorize the application.
+
+**Discogs Integration (Optional, but Recommended for Barcode Scanning):**
+For the barcode scanning feature to reliably fetch album details, it's recommended to use the Discogs API. You'll need a Personal Access Token from Discogs:
+1.  Log in to your Discogs account.
+2.  Go to your Developer Settings page: [https://www.discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+3.  Click the "Generate new token" button.
+4.  Copy the generated token.
+5.  In the Vinyl Scrobbler web app, go to the "1.B Discogs API Settings" section.
+6.  Paste your token into the "Discogs Personal Access Token" field and click "Save Discogs Token".
+While barcode lookup might work for some queries without a token, frequent use or enhanced reliability requires a token.
 
 Part 2: The Python RFID Reader Script
 The Python script runs on a computer (like a Raspberry Pi) connected to a USB RFID reader.
