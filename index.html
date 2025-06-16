@@ -110,14 +110,14 @@
     <script type="module">
         // --- Firebase SDK Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- App State ---
         let db, auth, userId, lastFmSessionKey, appId;
         let lastFmCreds = {};
         const API_URL = 'https://ws.audioscrobbler.com/2.0/';
-        let firebaseAppInstance; // To prevent re-initialization
+        let firebaseAppInstance; 
 
         // --- UI Elements ---
         const ui = {
@@ -207,11 +207,16 @@
             logEntry.className = `p-2 rounded-md bg-gray-700/50 ${colorClass}`;
             logEntry.innerHTML = `<span class="font-mono text-xs">${timestamp}</span>: ${message}`;
             
-            const firstChild = ui.scrobbleLog.firstChild;
-            if (ui.scrobbleLog.querySelector('.text-gray-500')) {
-                 ui.scrobbleLog.innerHTML = '';
+            const placeholder = ui.scrobbleLog.querySelector('.text-gray-500');
+
+            if (placeholder) {
+                // If the placeholder is present, remove it and add the first log entry.
+                ui.scrobbleLog.innerHTML = '';
+                ui.scrobbleLog.appendChild(logEntry);
+            } else {
+                // If there are already logs, insert the new one at the top.
+                ui.scrobbleLog.insertBefore(logEntry, ui.scrobbleLog.firstChild);
             }
-            ui.scrobbleLog.insertBefore(logEntry, firstChild);
         }
 
         async function saveSettings() {
@@ -247,7 +252,7 @@
                 ui.apiKey.value = lastFmCreds.apiKey || '';
                 ui.apiSecret.value = lastFmCreds.apiSecret || '';
                 ui.lastfmUser.value = lastFmCreds.username || '';
-                logToScrobbler("Loaded saved API settings.");
+                logToScrobbler("Loaded saved Last.fm settings.");
             }
 
             const sessionRef = doc(db, `artifacts/${appId}/users/${userId}/config/lastfm_session`);
@@ -343,11 +348,9 @@
             document.querySelectorAll('.delete-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const idToDelete = e.target.dataset.id;
-                    const confirmation = confirm(`Are you sure you want to delete this album mapping? This cannot be undone.`);
-                    if (confirmation) {
-                        await deleteDoc(doc(db, `artifacts/${appId}/public/data/albums`, idToDelete));
-                        logToScrobbler(`Album ${idToDelete} deleted.`, 'info');
-                    }
+                    // Removed confirm() call as it's not supported and blocks execution.
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/albums`, idToDelete));
+                    logToScrobbler(`Album mapping for ${idToDelete} deleted.`, 'info');
                 });
             });
         }
@@ -361,7 +364,7 @@
                 username: lastFmCreds.username
             });
 
-            if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track) {
+            if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
                 logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
                 return;
             }
@@ -417,16 +420,16 @@
         // --- Core Application Runner ---
         async function runApp(firebaseConfig) {
              if (firebaseAppInstance) {
-                console.log("runApp called but Firebase is already initialized. Proceeding with existing instance.");
-             } else {
-                try {
-                    firebaseAppInstance = initializeApp(firebaseConfig);
-                } catch (e) {
-                    ui.firebaseStatus.textContent = `Error: Firebase initialization failed. Check your config. ${e.message}`;
-                    ui.firebaseStatus.classList.replace('text-green-400', 'text-red-400');
-                    console.error("Firebase init failed", e);
-                    return;
-                }
+                console.log("runApp called but Firebase is already initialized.");
+                return;
+             }
+             try {
+                firebaseAppInstance = initializeApp(firebaseConfig);
+            } catch (e) {
+                ui.firebaseStatus.textContent = `Error: Firebase initialization failed. Check your config. ${e.message}`;
+                ui.firebaseStatus.classList.replace('text-green-400', 'text-red-400');
+                console.error("Firebase init failed", e);
+                return;
             }
 
             db = getFirestore(firebaseAppInstance);
@@ -441,7 +444,7 @@
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     userId = user.uid;
-                    appId = firebaseConfig.projectId; // Use projectId as the App ID
+                    appId = firebaseConfig.projectId;
                     ui.userIdDisplay.textContent = userId;
 
                     await loadSettings();
@@ -461,12 +464,12 @@
 
                     const urlParams = new URLSearchParams(window.location.search);
                     const authToken = urlParams.get('token');
-                    if (authToken) {
+                    if (authToken && !lastFmSessionKey) {
                         await getSessionKey(authToken);
                     }
                 }
             });
-
+            
             if (!auth.currentUser) {
                 await signInAnonymously(auth);
             }
