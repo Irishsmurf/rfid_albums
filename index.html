@@ -154,16 +154,11 @@
             return CryptoJS.MD5(signatureString).toString();
         }
 
-        async function makeApiRequest(params, method = 'GET', requiresAuth = false) {
+        async function makeApiRequest(params, method = 'GET', isSigned = false) {
             params.api_key = lastFmCreds.apiKey;
             params.format = 'json';
 
-            if (requiresAuth) {
-                if (!lastFmSessionKey) {
-                    logToScrobbler("Error: Last.fm session key not found. Please authenticate.", "error");
-                    return null;
-                }
-                params.sk = lastFmSessionKey;
+            if (isSigned) {
                 params.api_sig = generateApiSignature(params, lastFmCreds.apiSecret);
             }
 
@@ -210,11 +205,9 @@
             const placeholder = ui.scrobbleLog.querySelector('.text-gray-500');
 
             if (placeholder) {
-                // If the placeholder is present, remove it and add the first log entry.
                 ui.scrobbleLog.innerHTML = '';
                 ui.scrobbleLog.appendChild(logEntry);
             } else {
-                // If there are already logs, insert the new one at the top.
                 ui.scrobbleLog.insertBefore(logEntry, ui.scrobbleLog.firstChild);
             }
         }
@@ -278,7 +271,7 @@
             const response = await makeApiRequest({
                 method: 'auth.getSession',
                 token: token
-            });
+            }, 'GET', true); // <-- The third parameter 'isSigned' is now TRUE
 
             if (response && response.session) {
                 lastFmSessionKey = response.session.key;
@@ -348,7 +341,6 @@
             document.querySelectorAll('.delete-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const idToDelete = e.target.dataset.id;
-                    // Removed confirm() call as it's not supported and blocks execution.
                     await deleteDoc(doc(db, `artifacts/${appId}/public/data/albums`, idToDelete));
                     logToScrobbler(`Album mapping for ${idToDelete} deleted.`, 'info');
                 });
@@ -357,12 +349,13 @@
         
         async function scrobbleAlbum(artist, album) {
             logToScrobbler(`Fetching tracklist for ${album} by ${artist}...`, 'info');
+            // This call is unsigned
             const tracklistData = await makeApiRequest({
                 method: 'album.getinfo',
                 artist: artist,
                 album: album,
                 username: lastFmCreds.username
-            });
+            }, 'GET', false);
 
             if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
                 logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
@@ -379,14 +372,15 @@
             }
             timestamps.reverse();
 
-            const scrobbleParams = { method: 'track.scrobble' };
+            const scrobbleParams = { method: 'track.scrobble', sk: lastFmSessionKey };
             for(let i = 0; i < tracks.length; i++) {
                 scrobbleParams[`artist[${i}]`] = artist;
                 scrobbleParams[`album[${i}]`] = album;
                 scrobbleParams[`track[${i}]`] = tracks[i].name;
                 scrobbleParams[`timestamp[${i}]`] = timestamps[i];
             }
-
+            
+            // This call IS signed
             const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true);
 
             if (scrobbleResponse && scrobbleResponse.scrobbles && scrobbleResponse.scrobbles['@attr'].accepted > 0) {
