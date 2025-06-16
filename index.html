@@ -155,12 +155,16 @@
         }
 
         async function makeApiRequest(params, method = 'GET', isSigned = false) {
+            // Add api_key to all requests
             params.api_key = lastFmCreds.apiKey;
-            params.format = 'json';
-
+            
+            // Generate signature if required, BEFORE adding the 'format' parameter
             if (isSigned) {
                 params.api_sig = generateApiSignature(params, lastFmCreds.apiSecret);
             }
+
+            // Add format parameter AFTER signing
+            params.format = 'json';
 
             const url = new URL(API_URL);
             const searchParams = new URLSearchParams(params);
@@ -271,7 +275,7 @@
             const response = await makeApiRequest({
                 method: 'auth.getSession',
                 token: token
-            }, 'GET', true); // <-- FIXED: This call must be signed.
+            }, 'GET', true); // This call must be signed
 
             if (response && response.session) {
                 lastFmSessionKey = response.session.key;
@@ -354,7 +358,7 @@
                 artist: artist,
                 album: album,
                 username: lastFmCreds.username
-            }, 'GET', false); // <-- Unsigned call
+            }, 'GET', false);
 
             if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
                 logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
@@ -379,7 +383,7 @@
                 scrobbleParams[`timestamp[${i}]`] = timestamps[i];
             }
 
-            const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true); // <-- Signed call
+            const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true);
 
             if (scrobbleResponse && scrobbleResponse.scrobbles && scrobbleResponse.scrobbles['@attr'].accepted > 0) {
                  logToScrobbler(`Successfully scrobbled ${scrobbleResponse.scrobbles['@attr'].accepted} tracks for '${album}'!`, 'success');
