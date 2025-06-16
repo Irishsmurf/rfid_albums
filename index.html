@@ -271,7 +271,7 @@
             const response = await makeApiRequest({
                 method: 'auth.getSession',
                 token: token
-            }, 'GET', true); // <-- The third parameter 'isSigned' is now TRUE
+            }, 'GET', true); // <-- FIXED: This call must be signed.
 
             if (response && response.session) {
                 lastFmSessionKey = response.session.key;
@@ -349,20 +349,19 @@
         
         async function scrobbleAlbum(artist, album) {
             logToScrobbler(`Fetching tracklist for ${album} by ${artist}...`, 'info');
-            // This call is unsigned
             const tracklistData = await makeApiRequest({
                 method: 'album.getinfo',
                 artist: artist,
                 album: album,
                 username: lastFmCreds.username
-            }, 'GET', false);
+            }, 'GET', false); // <-- Unsigned call
 
             if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
                 logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
                 return;
             }
             
-            const tracks = tracklistData.album.tracks.track;
+            const tracks = Array.isArray(tracklistData.album.tracks.track) ? tracklistData.album.tracks.track : [tracklistData.album.tracks.track];
             logToScrobbler(`Found ${tracks.length} tracks. Scrobbling now...`, 'success');
 
             const timestamps = [];
@@ -379,9 +378,8 @@
                 scrobbleParams[`track[${i}]`] = tracks[i].name;
                 scrobbleParams[`timestamp[${i}]`] = timestamps[i];
             }
-            
-            // This call IS signed
-            const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true);
+
+            const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true); // <-- Signed call
 
             if (scrobbleResponse && scrobbleResponse.scrobbles && scrobbleResponse.scrobbles['@attr'].accepted > 0) {
                  logToScrobbler(`Successfully scrobbled ${scrobbleResponse.scrobbles['@attr'].accepted} tracks for '${album}'!`, 'success');
