@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFID Music Scrobbler Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase SDKs will be included via firebase-config.js or directly here -->
+</head>
+<body>
+    <h1>RFID Music Scrobbler Admin</h1>
+
+    <!-- Last.fm Authentication Section -->
+    <section id="lastfm-auth">
+        <h2>Last.fm Configuration</h2>
+        <p>User ID for Scrobbling: <strong id="target-user-id-display">Loading...</strong> (This is configured in the Cloud Function)</p>
+        <div>
+            <label for="lastfm-api-key">API Key:</label>
+            <input type="text" id="lastfm-api-key" placeholder="Your Last.fm API Key">
+        </div>
+        <div>
+            <label for="lastfm-api-secret">API Secret:</label>
+            <input type="text" id="lastfm-api-secret" placeholder="Your Last.fm API Secret (Shared Secret)">
+        </div>
+        <button id="auth-lastfm-btn">Authenticate with Last.fm & Save Credentials</button>
+        <p id="lastfm-auth-status">Status: Not authenticated.</p>
+        <p><em>Note: After clicking, you'll be redirected to Last.fm. Once authorized, you'll be redirected back. The system will attempt to capture and save your session key. Ensure the correct User ID for scrobbling is set in the Cloud Function environment variables.</em></p>
+    </section>
+
+    <hr>
+
+    <!-- Album Management Section -->
+    <section id="album-management">
+        <h2>Album Management</h2>
+        <div>
+            <h3>Add/Edit Album</h3>
+            <input type="text" id="rfid-tag" placeholder="RFID Tag ID">
+            <input type="text" id="artist-name" placeholder="Artist Name">
+            <input type="text" id="album-title" placeholder="Album Title">
+            <button id="save-album-btn">Save Album</button>
+            <button id="clear-album-form-btn">Clear Form</button>
+        </div>
+        <h3>Current Albums</h3>
+        <div id="album-list">
+            <!-- Albums will be listed here by JavaScript -->
+            <p>Loading albums...</p>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- Log Viewing Section -->
+    <section id="log-viewing">
+        <h2>System Logs</h2>
+        <button id="refresh-logs-btn">Refresh Logs</button>
+        <div id="log-list">
+            <!-- Logs will be listed here by JavaScript -->
+            <p>Loading logs...</p>
+        </div>
+    </section>
+
+    <!-- Firebase SDK -->
+    <!-- These should be updated to the latest versions from Firebase Console -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
+
+    <!-- Local Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+</html>
