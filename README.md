@@ -13,7 +13,7 @@ A project that uses an ESP32 with an RFID reader to scan tags, publish them to M
     *   Scrobbles complete albums (all tracks) to a designated Last.fm user account.
     *   Logs all significant actions and errors to Firestore.
 *   **Web UI Management Console:**
-    *   Manages RFID tag to Artist/Album associations in Firestore.
+    *   Manages RFID tag to Artist/Album associations in Firestore (Google).
     *   Displays system logs from Firestore (from ESP32 via Cloud Function, and Cloud Function itself).
     *   Allows configuration of Last.fm API credentials (application's key/secret).
     *   Initiates the Last.fm user authentication flow to obtain a session key for scrobbling.
