@@ -115,9 +115,9 @@
 
             <!-- Section 4: Scrobble Log -->
             <section class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">4. Scrobble Log</h2>
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">4. Event Log</h2>
                  <div id="scrobbleLog" class="max-h-64 overflow-y-auto space-y-3 pr-2">
-                    <p class="text-gray-500">Waiting for scans...</p>
+                    <p class="text-gray-500">System events and configuration messages will appear here. RFID scrobbling is now handled by the Python script.</p>
                  </div>
             </section>
         </main>
@@ -415,67 +415,67 @@
             });
         }
         
-        async function scrobbleAlbum(artist, album) {
-            logToScrobbler(`Fetching tracklist for ${album} by ${artist}...`, 'info');
-            const tracklistData = await makeApiRequest({
-                method: 'album.getinfo',
-                artist: artist,
-                album: album,
-                username: lastFmCreds.username
-            }, 'GET', false);
+        // async function scrobbleAlbum(artist, album) {
+        //     logToScrobbler(`Fetching tracklist for ${album} by ${artist}...`, 'info');
+        //     const tracklistData = await makeApiRequest({
+        //         method: 'album.getinfo',
+        //         artist: artist,
+        //         album: album,
+        //         username: lastFmCreds.username
+        //     }, 'GET', false);
 
-            if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
-                logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
-                return;
-            }
+        //     if (!tracklistData || !tracklistData.album || !tracklistData.album.tracks.track || tracklistData.album.tracks.track.length === 0) {
+        //         logToScrobbler(`Could not find tracklist for '${album}'. Scrobbling failed.`, 'error');
+        //         return;
+        //     }
             
-            const tracks = Array.isArray(tracklistData.album.tracks.track) ? tracklistData.album.tracks.track : [tracklistData.album.tracks.track];
-            logToScrobbler(`Found ${tracks.length} tracks. Scrobbling now...`, 'success');
+        //     const tracks = Array.isArray(tracklistData.album.tracks.track) ? tracklistData.album.tracks.track : [tracklistData.album.tracks.track];
+        //     logToScrobbler(`Found ${tracks.length} tracks. Scrobbling now...`, 'success');
 
-            const timestamps = [];
-            const now = Math.floor(Date.now() / 1000);
-            for (let i = 0; i < tracks.length; i++) {
-                timestamps.push(now - i * 240);
-            }
-            timestamps.reverse();
+        //     const timestamps = [];
+        //     const now = Math.floor(Date.now() / 1000);
+        //     for (let i = 0; i < tracks.length; i++) {
+        //         timestamps.push(now - i * 240);
+        //     }
+        //     timestamps.reverse();
 
-            const scrobbleParams = { method: 'track.scrobble', sk: lastFmSessionKey };
-            for(let i = 0; i < tracks.length; i++) {
-                scrobbleParams[`artist[${i}]`] = artist;
-                scrobbleParams[`album[${i}]`] = album;
-                scrobbleParams[`track[${i}]`] = tracks[i].name;
-                scrobbleParams[`timestamp[${i}]`] = timestamps[i];
-            }
+        //     const scrobbleParams = { method: 'track.scrobble', sk: lastFmSessionKey };
+        //     for(let i = 0; i < tracks.length; i++) {
+        //         scrobbleParams[`artist[${i}]`] = artist;
+        //         scrobbleParams[`album[${i}]`] = album;
+        //         scrobbleParams[`track[${i}]`] = tracks[i].name;
+        //         scrobbleParams[`timestamp[${i}]`] = timestamps[i];
+        //     }
 
-            const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true);
+        //     const scrobbleResponse = await makeApiRequest(scrobbleParams, 'POST', true);
 
-            if (scrobbleResponse && scrobbleResponse.scrobbles && scrobbleResponse.scrobbles['@attr'].accepted > 0) {
-                 logToScrobbler(`Successfully scrobbled ${scrobbleResponse.scrobbles['@attr'].accepted} tracks for '${album}'!`, 'success');
-            } else {
-                 logToScrobbler(`Scrobbling failed for '${album}'. Response: ${JSON.stringify(scrobbleResponse)}`, 'error');
-            }
-        }
+        //     if (scrobbleResponse && scrobbleResponse.scrobbles && scrobbleResponse.scrobbles['@attr'].accepted > 0) {
+        //          logToScrobbler(`Successfully scrobbled ${scrobbleResponse.scrobbles['@attr'].accepted} tracks for '${album}'!`, 'success');
+        //     } else {
+        //          logToScrobbler(`Scrobbling failed for '${album}'. Response: ${JSON.stringify(scrobbleResponse)}`, 'error');
+        //     }
+        // }
         
-        async function handleScan(rfid) {
-             logToScrobbler(`Received scan for RFID: ${rfid}`, 'scan');
-             ui.rfidTag.value = rfid;
+        // async function handleScan(rfid) {
+        //      logToScrobbler(`Received scan for RFID: ${rfid}`, 'scan');
+        //      ui.rfidTag.value = rfid;
              
-             if (!lastFmSessionKey) {
-                 logToScrobbler("Cannot scrobble, Last.fm is not authenticated.", "error");
-                 return;
-             }
+        //      if (!lastFmSessionKey) {
+        //          logToScrobbler("Cannot scrobble, Last.fm is not authenticated.", "error");
+        //          return;
+        //      }
 
-             const albumRef = doc(db, `artifacts/${appId}/public/data/albums`, rfid);
-             const albumSnap = await getDoc(albumRef);
+        //      const albumRef = doc(db, `artifacts/${appId}/public/data/albums`, rfid);
+        //      const albumSnap = await getDoc(albumRef);
 
-             if (albumSnap.exists()) {
-                 const albumData = albumSnap.data();
-                 logToScrobbler(`Found album: ${albumData.album} by ${albumData.artist}`, 'info');
-                 await scrobbleAlbum(albumData.artist, albumData.album);
-             } else {
-                 logToScrobbler(`RFID tag ${rfid} is not in your collection. Please add it.`, 'error');
-             }
-        }
+        //      if (albumSnap.exists()) {
+        //          const albumData = albumSnap.data();
+        //          logToScrobbler(`Found album: ${albumData.album} by ${albumData.artist}`, 'info');
+        //          await scrobbleAlbum(albumData.artist, albumData.album);
+        //      } else {
+        //          logToScrobbler(`RFID tag ${rfid} is not in your collection. Please add it.`, 'error');
+        //      }
+        // }
 
         function onScanSuccess(decodedText, decodedResult) {
             console.log(`Code matched = ${decodedText}`, decodedResult);
@@ -615,13 +615,38 @@
                     const albumsCol = collection(db, `artifacts/${appId}/public/data/albums`);
                     onSnapshot(albumsCol, (snapshot) => renderAlbums(snapshot.docs));
                     
-                    const scansCol = collection(db, `artifacts/${appId}/public/data/scans`);
-                    onSnapshot(query(scansCol), (snapshot) => {
-                        snapshot.docChanges().forEach(async (change) => {
+                    // const scansCol = collection(db, `artifacts/${appId}/public/data/scans`);
+                    // onSnapshot(query(scansCol), (snapshot) => {
+                    //     snapshot.docChanges().forEach(async (change) => {
+                    //         if (change.type === "added") {
+                    //             await handleScan(change.doc.data().rfid);
+                    //             await deleteDoc(change.doc.ref);
+                    //         }
+                    //     });
+                    // });
+
+                    // Listener for script_logs
+                    const scriptLogsCol = collection(db, `artifacts/${appId}/public/data/script_logs`);
+                    const scriptLogsQuery = query(scriptLogsCol, orderBy('timestamp', 'desc'), limit(50));
+
+                    onSnapshot(scriptLogsQuery, (snapshot) => {
+                        snapshot.docChanges().forEach((change) => {
                             if (change.type === "added") {
-                                await handleScan(change.doc.data().rfid);
-                                await deleteDoc(change.doc.ref);
+                                const logData = change.doc.data();
+                                let message = logData.message;
+                                // Append details to message if they exist, for better context in UI
+                                if (logData.details) {
+                                    const detailsString = Object.entries(logData.details)
+                                        .map(([key, value]) => `${key}: ${value}`)
+                                        .join(', ');
+                                    if (detailsString) { // Ensure detailsString is not empty
+                                       message += ` (Details: ${detailsString})`;
+                                    }
+                                }
+                                logToScrobbler(message, logData.type);
                             }
+                            // Note: We are not handling 'modified' or 'removed' for script logs for simplicity.
+                            // The log is append-only from the script's perspective.
                         });
                     });
 
