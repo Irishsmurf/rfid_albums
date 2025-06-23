@@ -1,0 +1,6 @@
+# Function dependencies
+firebase-admin>=6.0.0,<7.0.0
+requests>=2.25.0,<3.0.0
+# google-cloud-firestore is included with firebase-admin, but explicit is fine
+# google-cloud-pubsub is for publishing, not usually needed for trigger consumption by function itself.
+# The execution environment provides the Pub/Sub trigger payload.
